@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>星光猫咪 · 水晶序列</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --crystal-rose: #FF6B9D;
+            --crystal-violet: #C77DFF;
+            --crystal-sky: #4DC9F6;
+            --crystal-mint: #48E5C2;
+            --crystal-gold: #FFD166;
+            --crystal-coral: #FF8C61;
+            --text-light: #e8e8f0;
+            --text-muted: #b0b0c8;
+            --ring-radius: 140px;
+            --crystal-size: 60px;
+            --kitty-size: 70px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
+            background: var(--bg);
+            touch-action: manipulation;
+            overscroll-behavior: contain;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        #game-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 顶部 HUD + 结束按钮 */
+        #hud {
+            position: absolute;
+            top: max(16px, env(safe-area-inset-top, 16px));
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            background: rgba(30, 30, 55, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 24px;
+            padding: 10px 20px;
+            z-index: 10;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px 18px;
+        }
+        #end-game-btn {
+            background: rgba(255, 100, 100, 0.25);
+            border: 1px solid rgba(255, 120, 120, 0.6);
+            color: #FFB3B3;
+            font-size: 1.1rem;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #end-game-btn:active {
+            background: rgba(255, 100, 100, 0.5);
+            transform: scale(0.95);
+        }
+
+        .hud-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-light);
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+        }
+        .hud-item .icon {
+            font-size: 1.2rem;
+        }
+        .hud-value {
+            color: #FFD166;
+            font-weight: 700;
+            font-size: 1rem;
+            min-width: 28px;
+            text-align: center;
+            transition: transform 0.15s ease;
+        }
+        .hud-value.pulse {
+            animation: valuePulse 0.35s ease;
+        }
+        @keyframes valuePulse {
+            0%,
+            100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.4);
+                color: #FFE88C;
+            }
+        }
+
+        #status-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 60px));
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-light);
+            text-align: center;
+            letter-spacing: 0.04em;
+            transition: all 0.3s ease;
+            z-index: 5;
+            pointer-events: none;
+            background: rgba(30, 30, 55, 0.7);
+            padding: 8px 18px;
+            border-radius: 20px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            opacity: 0.9;
+        }
+        #status-indicator.watch {
+            color: #FFD166;
+            animation: statusGlow 1.2s ease-in-out infinite;
+        }
+        #status-indicator.play {
+            color: #48E5C2;
+            animation: statusPulse 0.8s ease-in-out infinite;
+        }
+        #status-indicator.success {
+            color: #48E5C2;
+            animation: none;
+        }
+        #status-indicator.error {
+            color: #FF6B9D;
+            animation: shake 0.5s ease;
+        }
+        @keyframes statusGlow {
+            0%,
+            100% {
+                opacity: 0.7;
+            }
+            50% {
+                opacity: 1;
+            }
+        }
+        @keyframes statusPulse {
+            0%,
+            100% {
+                transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 60px)) scale(1);
+            }
+            50% {
+                transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 60px)) scale(1.06);
+            }
+        }
+        @keyframes shake {
+            0%,
+            100% {
+                transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 60px)) translateX(0);
+            }
+            25% {
+                transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 60px)) translateX(-8px);
+            }
+            50% {
+                transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 60px)) translateX(8px);
+            }
+            75% {
+                transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 60px)) translateX(-4px);
+            }
+        }
+
+        #kitty-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 3;
+            pointer-events: none;
+            transition: transform 0.3s ease;
+        }
+        #kitty {
+            font-size: var(--kitty-size);
+            display: block;
+            text-align: center;
+            transition: all 0.3s ease;
+            filter: drop-shadow(0 0 18px rgba(255, 180, 220, 0.5));
+            cursor: default;
+            line-height: 1;
+        }
+        #kitty.bounce {
+            animation: kittyBounce 0.5s ease;
+        }
+        #kitty.happy {
+            animation: kittyHappy 0.6s ease;
+        }
+        #kitty.sad {
+            animation: kittySad 0.5s ease;
+        }
+        @keyframes kittyBounce {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+            30% {
+                transform: translateY(-22px) scale(1.1);
+            }
+            60% {
+                transform: translateY(-6px) scale(0.95);
+            }
+            80% {
+                transform: translateY(-14px) scale(1.04);
+            }
+        }
+        @keyframes kittyHappy {
+            0%,
+            100% {
+                transform: scale(1) rotate(0);
+            }
+            25% {
+                transform: scale(1.25) rotate(-8deg);
+            }
+            50% {
+                transform: scale(1.1) rotate(8deg);
+            }
+            75% {
+                transform: scale(1.2) rotate(-4deg);
+            }
+        }
+        @keyframes kittySad {
+            0%,
+            100% {
+                transform: scale(1);
+            }
+            30% {
+                transform: scale(0.85);
+            }
+            60% {
+                transform: scale(1.05);
+            }
+        }
+
+        #crystal-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 0;
+            height: 0;
+            z-index: 2;
+        }
+        .crystal {
+            position: absolute;
+            width: var(--crystal-size);
+            height: var(--crystal-size);
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 0 16px rgba(0, 0, 0, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            pointer-events: auto;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+            transform-origin: center center;
+            z-index: 2;
+        }
+        .crystal:active {
+            transform: scale(0.88) !important;
+            transition: transform 0.06s ease;
+            box-shadow: 0 0 30px currentColor, 0 0 50px currentColor, inset 0 2px 4px rgba(255, 255, 255, 0.3) !important;
+        }
+        .crystal.lit {
+            animation: crystalGlow 0.55s ease-out;
+            box-shadow: 0 0 40px currentColor, 0 0 70px currentColor, 0 0 100px currentColor, inset 0 2px 6px rgba(255, 255, 255, 0.5) !important;
+            transform: scale(1.2) !important;
+            z-index: 5 !important;
+        }
+        @keyframes crystalGlow {
+            0% {
+                transform: scale(1) !important;
+                box-shadow: 0 0 8px currentColor, inset 0 2px 4px rgba(255, 255, 255, 0.2) !important;
+            }
+            40% {
+                transform: scale(1.35) !important;
+                box-shadow: 0 0 55px currentColor, 0 0 90px currentColor, 0 0 130px currentColor, inset 0 3px 8px rgba(255, 255, 255, 0.55) !important;
+            }
+            100% {
+                transform: scale(1) !important;
+                box-shadow: 0 0 16px rgba(0, 0, 0, 0.3), inset 0 2px 4px rgba(255, 255, 255, 0.25) !important;
+            }
+        }
+        .crystal.wrong-flash {
+            animation: wrongShake 0.4s ease;
+            box-shadow: 0 0 35px #ff4444, 0 0 60px #ff2222 !important;
+        }
+        @keyframes wrongShake {
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+            20% {
+                transform: translateX(-6px);
+            }
+            40% {
+                transform: translateX(6px);
+            }
+            60% {
+                transform: translateX(-4px);
+            }
+            80% {
+                transform: translateX(3px);
+            }
+        }
+        .crystal.disabled {
+            pointer-events: none;
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .floating-star {
+            position: fixed;
+            z-index: 8;
+            pointer-events: auto;
+            cursor: pointer;
+            font-size: 1.8rem;
+            transition: none;
+            animation: starFloat var(--float-duration, 2.5s) linear forwards;
+            filter: drop-shadow(0 0 8px rgba(255, 215, 100, 0.8));
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .floating-star:active {
+            transform: scale(1.5);
+            filter: drop-shadow(0 0 20px rgba(255, 255, 150, 1));
+        }
+        @keyframes starFloat {
+            0% {
+                transform: translate(0, 0) scale(0.3) rotate(0deg);
+                opacity: 0;
+            }
+            15% {
+                transform: translate(calc(var(--dx) * 0.15), calc(var(--dy) * 0.15)) scale(1) rotate(30deg);
+                opacity: 1;
+            }
+            75% {
+                transform: translate(calc(var(--dx) * 0.75), calc(var(--dy) * 0.75)) scale(0.9) rotate(220deg);
+                opacity: 0.9;
+            }
+            100% {
+                transform: translate(var(--dx), var(--dy)) scale(0.2) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .particle {
+            position: fixed;
+            z-index: 9;
+            pointer-events: none;
+            font-size: 0.8rem;
+            animation: particleBurst 0.7s ease-out forwards;
+        }
+        @keyframes particleBurst {
+            0% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--px), var(--py)) scale(0);
+                opacity: 0;
+            }
+        }
+
+        /* 结束计分弹窗 */
+        #result-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 30;
+            background: rgba(20, 20, 40, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.4s ease;
+        }
+        #result-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .result-card {
+            background: rgba(30, 30, 55, 0.95);
+            border-radius: 32px;
+            padding: 32px 24px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            max-width: 320px;
+            width: 90%;
+            color: var(--text-light);
+        }
+        .result-card h2 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: #FFD166;
+            text-shadow: 0 0 20px rgba(255, 210, 100, 0.5);
+        }
+        .result-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.1rem;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+        }
+        .stat-value {
+            color: #FFD166;
+            font-weight: 700;
+        }
+        .result-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+        }
+        .result-btn {
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-restart {
+            background: #FFD166;
+            color: #1a1a2e;
+        }
+        .btn-menu {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .result-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* 开始覆盖层 */
+        #start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 20;
+            background: rgba(20, 20, 40, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            transition: opacity 0.5s ease;
+        }
+        #start-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #start-overlay h1 {
+            font-size: 2rem;
+            color: #FFD166;
+            text-align: center;
+            letter-spacing: 0.04em;
+            text-shadow: 0 0 30px rgba(255, 210, 100, 0.6);
+            line-height: 1.3;
+        }
+        #start-overlay .subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+            text-align: center;
+            max-width: 280px;
+            line-height: 1.5;
+        }
+        #start-btn {
+            font-size: 1.3rem;
+            padding: 14px 40px;
+            border-radius: 30px;
+            border: 2px solid #FFD166;
+            background: rgba(255, 210, 100, 0.15);
+            color: #FFD166;
+            cursor: pointer;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            transition: all 0.25s ease;
+            box-shadow: 0 0 25px rgba(255, 210, 100, 0.25);
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+        }
+        #start-btn:hover,
+        #start-btn:active {
+            background: rgba(255, 210, 100, 0.3);
+            box-shadow: 0 0 45px rgba(255, 210, 100, 0.5);
+            transform: scale(1.05);
+        }
+
+        #combo-pop {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            z-index: 15;
+            pointer-events: none;
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: #FFD166;
+            text-shadow: 0 0 30px rgba(255, 210, 100, 0.9), 0 0 60px rgba(255, 180, 50, 0.6);
+            transition: none;
+            white-space: nowrap;
+        }
+        #combo-pop.show {
+            animation: comboPopIn 0.9s ease-out forwards;
+        }
+        @keyframes comboPopIn {
+            0% {
+                transform: translate(-50%, -50%) scale(0.2);
+                opacity: 0;
+            }
+            30% {
+                transform: translate(-50%, -50%) scale(1.3);
+                opacity: 1;
+            }
+            60% {
+                transform: translate(-50%, -50%) scale(0.9);
+                opacity: 0.9;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1) translateY(-40px);
+                opacity: 0;
+            }
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 500px) {
+            :root {
+                --ring-radius: 105px;
+                --crystal-size: 50px;
+                --kitty-size: 52px;
+            }
+            #hud {
+                padding: 8px 14px;
+                gap: 6px 12px;
+                border-radius: 20px;
+            }
+            .hud-item {
+                font-size: 0.78rem;
+            }
+            .hud-value {
+                font-size: 0.85rem;
+            }
+            #end-game-btn {
+                font-size: 0.9rem;
+                padding: 4px 10px;
+            }
+            #status-indicator {
+                font-size: 0.9rem;
+                padding: 6px 14px;
+                transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 44px));
+            }
+            #status-indicator.play,
+            #status-indicator.watch {
+                transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 44px));
+            }
+            @keyframes statusPulse {
+                0%,
+                100% {
+                    transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 44px)) scale(1);
+                }
+                50% {
+                    transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 44px)) scale(1.06);
+                }
+            }
+            @keyframes shake {
+                0%,
+                100% {
+                    transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 44px)) translateX(0);
+                }
+                25% {
+                    transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 44px)) translateX(-8px);
+                }
+                50% {
+                    transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 44px)) translateX(8px);
+                }
+                75% {
+                    transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 44px)) translateX(-4px);
+                }
+            }
+            .crystal {
+                font-size: 1.2rem;
+            }
+            #start-overlay h1 {
+                font-size: 1.5rem;
+            }
+            #start-overlay .subtitle {
+                font-size: 0.85rem;
+                max-width: 240px;
+            }
+            #start-btn {
+                font-size: 1.1rem;
+                padding: 12px 32px;
+            }
+            .floating-star {
+                font-size: 1.4rem;
+            }
+            #combo-pop {
+                font-size: 1.8rem;
+            }
+        }
+        @media (max-width: 360px) {
+            :root {
+                --ring-radius: 82px;
+                --crystal-size: 42px;
+                --kitty-size: 42px;
+            }
+            #hud {
+                padding: 6px 10px;
+                gap: 4px 8px;
+                border-radius: 16px;
+            }
+            .hud-item {
+                font-size: 0.7rem;
+            }
+            .hud-value {
+                font-size: 0.75rem;
+            }
+            #end-game-btn {
+                font-size: 0.75rem;
+                padding: 3px 8px;
+            }
+            .crystal {
+                font-size: 1rem;
+            }
+            #status-indicator {
+                font-size: 0.75rem;
+                transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 34px));
+            }
+            #status-indicator.play,
+            #status-indicator.watch {
+                transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 34px));
+            }
+            @keyframes statusPulse {
+                0%,
+                100% {
+                    transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 34px)) scale(1);
+                }
+                50% {
+                    transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 34px)) scale(1.06);
+                }
+            }
+            @keyframes shake {
+                0%,
+                100% {
+                    transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 34px)) translateX(0);
+                }
+                25% {
+                    transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 34px)) translateX(-6px);
+                }
+                50% {
+                    transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 34px)) translateX(6px);
+                }
+                75% {
+                    transform: translate(-50%, -50%) translateY(calc(-1 * var(--ring-radius) - 34px)) translateX(-3px);
+                }
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+
+    <div id="game-container">
+        <div id="hud">
+            <div class="hud-item"><span class="icon">⭐</span>分数<span class="hud-value" id="score-display">0</span></div>
+            <div class="hud-item"><span class="icon">🔥</span>连击<span class="hud-value" id="combo-display">0</span></div>
+            <div class="hud-item"><span class="icon">🎯</span>关卡<span class="hud-value" id="level-display">1</span></div>
+            <div class="hud-item"><span class="icon">💎</span>星星<span class="hud-value" id="stars-display">0</span></div>
+            <button id="end-game-btn">🛑 结束</button>
+        </div>
+
+        <div id="status-indicator">👀 观察序列...</div>
+
+        <div id="kitty-container">
+            <span id="kitty">🐱</span>
+        </div>
+
+        <div id="crystal-ring"></div>
+        <div id="combo-pop"></div>
+    </div>
+
+    <!-- 结束计分弹窗 -->
+    <div id="result-overlay" class="hidden">
+        <div class="result-card">
+            <h2>🌟 游戏结束</h2>
+            <div class="result-stats">
+                <div class="stat-row"><span>最终得分</span><span class="stat-value" id="final-score">0</span></div>
+                <div class="stat-row"><span>最高连击</span><span class="stat-value" id="final-combo">0</span></div>
+                <div class="stat-row"><span>到达关卡</span><span class="stat-value" id="final-level">1</span></div>
+                <div class="stat-row"><span>收集星星</span><span class="stat-value" id="final-stars">0</span></div>
+            </div>
+            <div class="result-buttons">
+                <button class="result-btn btn-restart" id="restart-btn">🔄 再玩一次</button>
+                <button class="result-btn btn-menu" id="menu-btn">🏠 返回主界面</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 开始覆盖层 -->
+    <div id="start-overlay">
+        <h1>🌟 星光猫咪<br>水晶序列 ✨</h1>
+        <p class="subtitle">记住水晶亮起的顺序<br>按顺序点击它们<br>抓住飘过的星星💫</p>
+        <button id="start-btn">开 始 玩 ！</button>
+    </div>
+
+    <script>
+        (function() {
+            // ==================== DOM 元素 ====================
+            const bgCanvas = document.getElementById('bg-canvas');
+            const bgCtx = bgCanvas.getContext('2d');
+            const crystalRing = document.getElementById('crystal-ring');
+            const kittyEl = document.getElementById('kitty');
+            const statusIndicator = document.getElementById('status-indicator');
+            const scoreDisplay = document.getElementById('score-display');
+            const comboDisplay = document.getElementById('combo-display');
+            const levelDisplay = document.getElementById('level-display');
+            const starsDisplay = document.getElementById('stars-display');
+            const comboPop = document.getElementById('combo-pop');
+            const startOverlay = document.getElementById('start-overlay');
+            const startBtn = document.getElementById('start-btn');
+            const endGameBtn = document.getElementById('end-game-btn');
+            const resultOverlay = document.getElementById('result-overlay');
+            const finalScore = document.getElementById('final-score');
+            const finalCombo = document.getElementById('final-combo');
+            const finalLevel = document.getElementById('final-level');
+            const finalStars = document.getElementById('final-stars');
+            const restartBtn = document.getElementById('restart-btn');
+            const menuBtn = document.getElementById('menu-btn');
+
+            // ==================== 音频主音量控制 ====================
+            const MASTER_VOLUME = 0.08; // 降低整体音量，防止炸麦
+
+            // ==================== 游戏状态 ====================
+            const STATE = {
+                IDLE: 'idle',
+                SHOWING: 'showing',
+                PLAYER_TURN: 'player_turn',
+                RESULT: 'result',
+                ENDED: 'ended'
+            };
+
+            let gameState = STATE.IDLE;
+            let sequence = [];
+            let playerIndex = 0;
+            let score = 0;
+            let combo = 0;
+            let maxCombo = 0;
+            let level = 1;
+            let starsCollected = 0;
+            let sequenceLength = 2;
+            let showSpeed = 700;
+            let showGap = 300;
+            let isGameActive = false;
+            let retryCount = 0;
+            let maxRetries = 2;
+
+            // ==================== 音频系统 ====================
+            let audioCtx = null;
+            const notes = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
+
+            function initAudio() {
+                if (!audioCtx) {
+                    try {
+                        audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+                    } catch (e) {
+                        audioCtx = null;
+                    }
+                }
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+            }
+
+            function playNote(frequency, duration = 0.15, volume = 0.15) {
+                if (!audioCtx) return;
+                try {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(volume * MASTER_VOLUME, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(audioCtx.currentTime);
+                    osc.stop(audioCtx.currentTime + duration);
+                } catch (e) {}
+            }
+
+            function playCollectSound() {
+                if (!audioCtx) return;
+                try {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(1800, audioCtx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.12 * MASTER_VOLUME, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(audioCtx.currentTime);
+                    osc.stop(audioCtx.currentTime + 0.12);
+                } catch (e) {}
+            }
+
+            function playErrorSound() {
+                if (!audioCtx) return;
+                try {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.1 * MASTER_VOLUME, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(audioCtx.currentTime);
+                    osc.stop(audioCtx.currentTime + 0.3);
+                } catch (e) {}
+            }
+
+            function playComboCelebration() {
+                if (!audioCtx) return;
+                const baseNote = 600;
+                [0, 1, 2, 3, 4].forEach((i, idx) => {
+                    setTimeout(() => {
+                        playNote(baseNote * Math.pow(1.2, i), 0.12, 0.18);
+                    }, idx * 50);
+                });
+            }
+
+            // ==================== 水晶系统 ====================
+            const crystalColors = [
+                '#FF6B9D', '#C77DFF', '#4DC9F6',
+                '#48E5C2', '#FFD166', '#FF8C61'
+            ];
+            const crystalNames = ['rose', 'violet', 'sky', 'mint', 'gold', 'coral'];
+            const crystalEmojis = ['🌸', '💜', '💎', '🍃', '⭐', '🧡'];
+            let crystals = [];
+
+            function getRingRadius() {
+                const rootStyle = getComputedStyle(document.documentElement);
+                const radiusStr = rootStyle.getPropertyValue('--ring-radius').trim();
+                return parseFloat(radiusStr) || 140;
+            }
+
+            function getCrystalSize() {
+                const rootStyle = getComputedStyle(document.documentElement);
+                const sizeStr = rootStyle.getPropertyValue('--crystal-size').trim();
+                return parseFloat(sizeStr) || 60;
+            }
+
+            function positionCrystals() {
+                const radius = getRingRadius();
+                const size = getCrystalSize();
+                const halfSize = size / 2;
+                crystals.forEach((crystal, i) => {
+                    const angleDeg = i * 60 - 90;
+                    const angleRad = (angleDeg * Math.PI) / 180;
+                    const x = Math.cos(angleRad) * radius - halfSize;
+                    const y = Math.sin(angleRad) * radius - halfSize;
+                    crystal.el.style.left = x + 'px';
+                    crystal.el.style.top = y + 'px';
+                    crystal.el.style.width = size + 'px';
+                    crystal.el.style.height = size + 'px';
+                    crystal.x = x;
+                    crystal.y = y;
+                    crystal.angleDeg = angleDeg;
+                });
+            }
+
+            function createCrystals() {
+                crystalRing.innerHTML = '';
+                crystals = [];
+                const size = getCrystalSize();
+                for (let i = 0; i < 6; i++) {
+                    const btn = document.createElement('button');
+                    btn.className = 'crystal';
+                    btn.style.backgroundColor = crystalColors[i];
+                    btn.style.color = '#fff';
+                    btn.style.width = size + 'px';
+                    btn.style.height = size + 'px';
+                    btn.style.fontSize = (size * 0.4) + 'px';
+                    btn.textContent = crystalEmojis[i];
+                    btn.setAttribute('data-index', i);
+                    btn.setAttribute('aria-label', crystalNames[i]);
+
+                    btn.addEventListener('pointerup', (e) => {
+                        e.preventDefault();
+                        onCrystalClick(i);
+                    });
+
+                    crystalRing.appendChild(btn);
+                    crystals.push({
+                        el: btn,
+                        index: i,
+                        color: crystalColors[i],
+                        note: notes[i],
+                        x: 0,
+                        y: 0,
+                        angleDeg: 0,
+                    });
+                }
+                positionCrystals();
+            }
+
+            function onCrystalClick(index) {
+                if (gameState !== STATE.PLAYER_TURN) return;
+                if (playerIndex >= sequence.length) return;
+                initAudio();
+
+                const expectedIndex = sequence[playerIndex];
+                const clickedCrystal = crystals[index];
+
+                if (index === expectedIndex) {
+                    playNote(clickedCrystal.note, 0.2, 0.18);
+                    clickedCrystal.el.classList.add('lit');
+                    setTimeout(() => clickedCrystal.el.classList.remove('lit'), 500);
+                    spawnParticles(clickedCrystal.el, clickedCrystal.color, 8);
+                    playerIndex++;
+
+                    if (playerIndex >= sequence.length) {
+                        onSequenceComplete();
+                    }
+                } else {
+                    playErrorSound();
+                    clickedCrystal.el.classList.add('wrong-flash');
+                    setTimeout(() => clickedCrystal.el.classList.remove('wrong-flash'), 400);
+                    const correctCrystal = crystals[expectedIndex];
+                    correctCrystal.el.classList.add('lit');
+                    setTimeout(() => correctCrystal.el.classList.remove('lit'), 700);
+                    onSequenceError();
+                }
+            }
+
+            function onSequenceComplete() {
+                gameState = STATE.RESULT;
+                combo++;
+                if (combo > maxCombo) maxCombo = combo;
+                const bonusPoints = sequence.length * 20 * (1 + Math.floor(combo / 5));
+                score += bonusPoints;
+                starsCollected += sequence.length;
+                updateHUD();
+                setStatus('success', '✨ 太棒了！+ ' + bonusPoints + '分');
+                kittyEl.classList.add('happy');
+                setTimeout(() => kittyEl.classList.remove('happy'), 600);
+                retryCount = 0;
+
+                if (combo % 5 === 0 && combo > 0) {
+                    showComboPop(combo);
+                    playComboCelebration();
+                    spawnCelebrationParticles();
+                }
+                if (combo === 10) {
+                    showComboPop(combo);
+                    playComboCelebration();
+                    spawnCelebrationParticles();
+                }
+
+                if (sequence.length >= sequenceLength && retryCount === 0) {
+                    level++;
+                    sequenceLength = Math.min(level + 1, 14);
+                    showSpeed = Math.max(250, 700 - (level - 1) * 30);
+                    showGap = Math.max(120, 300 - (level - 1) * 15);
+                    updateHUD();
+                }
+
+                disableCrystals();
+                setTimeout(() => {
+                    if (gameState !== STATE.ENDED) {
+                        startNewRound();
+                    }
+                }, 1000);
+            }
+
+            function onSequenceError() {
+                gameState = STATE.RESULT;
+                combo = 0;
+                retryCount++;
+                setStatus('error', '😿 再试一次！');
+                kittyEl.classList.add('sad');
+                setTimeout(() => kittyEl.classList.remove('sad'), 500);
+                updateHUD();
+                disableCrystals();
+
+                if (retryCount >= maxRetries) {
+                    sequenceLength = Math.max(2, sequenceLength - 1);
+                    retryCount = 0;
+                    setStatus('error', '🔄 序列缩短了，加油！');
+                }
+
+                setTimeout(() => {
+                    if (gameState !== STATE.ENDED) {
+                        playerIndex = 0;
+                        showSequence();
+                    }
+                }, 900);
+            }
+
+            function disableCrystals() {
+                crystals.forEach(c => c.el.classList.add('disabled'));
+            }
+
+            function enableCrystals() {
+                crystals.forEach(c => c.el.classList.remove('disabled'));
+            }
+
+            // ==================== 序列展示 ====================
+            function generateSequence() {
+                sequence = [];
+                const len = sequenceLength;
+                let last = -1;
+                for (let i = 0; i < len; i++) {
+                    let next;
+                    do {
+                        next = Math.floor(Math.random() * 6);
+                    } while (next === last && len > 1);
+                    sequence.push(next);
+                    last = next;
+                }
+            }
+
+            function showSequence() {
+                gameState = STATE.SHOWING;
+                playerIndex = 0;
+                disableCrystals();
+                setStatus('watch', '👀 记住序列...');
+                kittyEl.textContent = '🐱';
+                generateSequence();
+
+                let delay = 0;
+                const totalItems = sequence.length;
+
+                sequence.forEach((crystalIndex, i) => {
+                    delay += showGap;
+                    setTimeout(() => {
+                        if (gameState !== STATE.SHOWING) return;
+                        const crystal = crystals[crystalIndex];
+                        crystal.el.classList.add('lit');
+                        playNote(crystal.note, 0.25, 0.2);
+                        setStatus('watch', `👀 记住序列... ${i + 1}/${totalItems}`);
+                        setTimeout(() => {
+                            crystal.el.classList.remove('lit');
+                        }, showSpeed);
+                    }, delay);
+                    delay += showSpeed;
+                });
+
+                const totalShowTime = delay + 400;
+                setTimeout(() => {
+                    if (gameState === STATE.SHOWING) {
+                        startPlayerTurn();
+                    }
+                }, totalShowTime);
+            }
+
+            function startPlayerTurn() {
+                gameState = STATE.PLAYER_TURN;
+                playerIndex = 0;
+                enableCrystals();
+                setStatus('play', '🎯 轮到你了！按顺序点击');
+                kittyEl.textContent = '🤔';
+            }
+
+            function startNewRound() {
+                playerIndex = 0;
+                sequence = [];
+                showSequence();
+            }
+
+            // ==================== 状态指示器 ====================
+            function setStatus(type, text) {
+                statusIndicator.textContent = text;
+                statusIndicator.className = '';
+                if (type === 'watch') statusIndicator.className = 'watch';
+                if (type === 'play') statusIndicator.className = 'play';
+                if (type === 'success') statusIndicator.className = 'success';
+                if (type === 'error') statusIndicator.className = 'error';
+            }
+
+            // ==================== HUD 更新 ====================
+            function updateHUD() {
+                const prevScore = scoreDisplay.textContent;
+                const prevCombo = comboDisplay.textContent;
+                const prevLevel = levelDisplay.textContent;
+                const prevStars = starsDisplay.textContent;
+
+                scoreDisplay.textContent = score;
+                comboDisplay.textContent = combo;
+                levelDisplay.textContent = level;
+                starsDisplay.textContent = starsCollected;
+
+                if (prevScore !== String(score)) pulseElement(scoreDisplay);
+                if (prevCombo !== String(combo)) pulseElement(comboDisplay);
+                if (prevLevel !== String(level)) pulseElement(levelDisplay);
+                if (prevStars !== String(starsCollected)) pulseElement(starsDisplay);
+            }
+
+            function pulseElement(el) {
+                el.classList.remove('pulse');
+                void el.offsetWidth;
+                el.classList.add('pulse');
+                setTimeout(() => el.classList.remove('pulse'), 350);
+            }
+
+            // ==================== 连击弹窗 ====================
+            function showComboPop(comboNum) {
+                let text = '';
+                if (comboNum >= 20) text = '🌟 传奇连击！' + comboNum + 'x';
+                else if (comboNum >= 15) text = '💫 超级连击！' + comboNum + 'x';
+                else if (comboNum >= 10) text = '✨ 超棒连击！' + comboNum + 'x';
+                else text = '🔥 ' + comboNum + ' 连击！';
+
+                comboPop.textContent = text;
+                comboPop.className = '';
+                void comboPop.offsetWidth;
+                comboPop.className = 'show';
+                setTimeout(() => {
+                    comboPop.className = '';
+                }, 900);
+            }
+
+            // ==================== 粒子效果 ====================
+            function spawnParticles(element, color, count = 8) {
+                const rect = element.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const particleEmojis = ['✨', '💫', '⭐', '🌟', '💖', '💕'];
+
+                for (let i = 0; i < count; i++) {
+                    const particle = document.createElement('span');
+                    particle.className = 'particle';
+                    particle.textContent = particleEmojis[Math.floor(Math.random() * particleEmojis.length)];
+                    particle.style.left = cx + 'px';
+                    particle.style.top = cy + 'px';
+                    const angle = (Math.random() * 360) * Math.PI / 180;
+                    const dist = 30 + Math.random() * 55;
+                    particle.style.setProperty('--px', Math.cos(angle) * dist + 'px');
+                    particle.style.setProperty('--py', Math.sin(angle) * dist + 'px');
+                    particle.style.fontSize = (0.5 + Math.random() * 1.2) + 'rem';
+                    document.body.appendChild(particle);
+                    setTimeout(() => {
+                        if (particle.parentNode) particle.parentNode.removeChild(particle);
+                    }, 750);
+                }
+            }
+
+            function spawnCelebrationParticles() {
+                const cx = window.innerWidth / 2;
+                const cy = window.innerHeight / 2;
+                const bigEmojis = ['🌟', '✨', '💫', '🎉', '💖', '🔥', '💎', '🌈'];
+
+                for (let i = 0; i < 20; i++) {
+                    const particle = document.createElement('span');
+                    particle.className = 'particle';
+                    particle.textContent = bigEmojis[Math.floor(Math.random() * bigEmojis.length)];
+                    particle.style.left = cx + 'px';
+                    particle.style.top = cy + 'px';
+                    const angle = (Math.random() * 360) * Math.PI / 180;
+                    const dist = 60 + Math.random() * 120;
+                    particle.style.setProperty('--px', Math.cos(angle) * dist + 'px');
+                    particle.style.setProperty('--py', Math.sin(angle) * dist + 'px');
+                    particle.style.fontSize = (1 + Math.random() * 2) + 'rem';
+                    particle.style.animationDuration = (0.8 + Math.random() * 0.6) + 's';
+                    document.body.appendChild(particle);
+                    setTimeout(() => {
+                        if (particle.parentNode) particle.parentNode.removeChild(particle);
+                    }, 1500);
+                }
+            }
+
+            // ==================== 飘过的星星 ====================
+            let starSpawnTimer = null;
+            let starSpawnRate = 1800;
+
+            function spawnFloatingStar() {
+                if (!isGameActive || gameState === STATE.ENDED || gameState === STATE.IDLE) return;
+                const starEmojis = ['⭐', '💫', '🌟', '✨', '💖', '🔮', '💎', '🍬'];
+                const star = document.createElement('span');
+                star.className = 'floating-star';
+                star.textContent = starEmojis[Math.floor(Math.random() * starEmojis.length)];
+
+                const side = Math.floor(Math.random() * 4);
+                let startX, startY, endX, endY;
+                const w = window.innerWidth;
+                const h = window.innerHeight;
+                const margin = 30;
+
+                switch (side) {
+                    case 0:
+                        startX = -margin;
+                        startY = Math.random() * h;
+                        endX = w + margin;
+                        endY = Math.random() * h;
+                        break;
+                    case 1:
+                        startX = w + margin;
+                        startY = Math.random() * h;
+                        endX = -margin;
+                        endY = Math.random() * h;
+                        break;
+                    case 2:
+                        startX = Math.random() * w;
+                        startY = -margin;
+                        endX = Math.random() * w;
+                        endY = h + margin;
+                        break;
+                    case 3:
+                        startX = Math.random() * w;
+                        startY = h + margin;
+                        endX = Math.random() * w;
+                        endY = -margin;
+                        break;
+                }
+
+                const dx = endX - startX;
+                const dy = endY - startY;
+                const duration = 1.8 + Math.random() * 3.0;
+
+                star.style.left = startX + 'px';
+                star.style.top = startY + 'px';
+                star.style.setProperty('--dx', dx + 'px');
+                star.style.setProperty('--dy', dy + 'px');
+                star.style.setProperty('--float-duration', duration + 's');
+
+                // 严格限定只有点击星星本身才收集
+                star.addEventListener('pointerup', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (e.target === star && star.dataset.collected !== 'true') {
+                        collectStar(star);
+                    }
+                });
+
+                document.body.appendChild(star);
+
+                // 自动消失时不加分
+                setTimeout(() => {
+                    if (star.parentNode && star.dataset.collected !== 'true') {
+                        star.style.opacity = '0';
+                        star.style.pointerEvents = 'none';
+                        setTimeout(() => {
+                            if (star.parentNode) star.parentNode.removeChild(star);
+                        }, 200);
+                    }
+                }, duration * 1000 + 100);
+            }
+
+            function collectStar(star) {
+                star.dataset.collected = 'true';
+                initAudio();
+                playCollectSound();
+                const bonusPoints = 10 + Math.floor(Math.random() * 15);
+                score += bonusPoints;
+                starsCollected++;
+                updateHUD();
+                spawnParticles(star, '#FFD166', 5);
+                star.style.transform = 'scale(1.8)';
+                star.style.opacity = '0';
+                star.style.pointerEvents = 'none';
+                star.style.transition = 'all 0.2s ease';
+                setTimeout(() => {
+                    if (star.parentNode) star.parentNode.removeChild(star);
+                }, 200);
+            }
+
+            function adjustStarSpawnRate() {
+                if (gameState === STATE.SHOWING) {
+                    starSpawnRate = 600 + Math.random() * 500;
+                } else if (gameState === STATE.PLAYER_TURN) {
+                    starSpawnRate = 1500 + Math.random() * 1500;
+                } else {
+                    starSpawnRate = 2000 + Math.random() * 2000;
+                }
+            }
+
+            function scheduleNextStar() {
+                if (starSpawnTimer) clearTimeout(starSpawnTimer);
+                if (!isGameActive || gameState === STATE.ENDED || gameState === STATE.IDLE) {
+                    starSpawnRate = 3000;
+                    starSpawnTimer = setTimeout(() => {
+                        spawnFloatingStar();
+                        scheduleNextStar();
+                    }, starSpawnRate);
+                    return;
+                }
+                adjustStarSpawnRate();
+                starSpawnTimer = setTimeout(() => {
+                    spawnFloatingStar();
+                    scheduleNextStar();
+                }, starSpawnRate);
+            }
+
+            // ==================== 背景星空 ====================
+            let bgStars = [];
+            const BG_STAR_COUNT = 140;
+
+            function initBgStars() {
+                bgStars = [];
+                for (let i = 0; i < BG_STAR_COUNT; i++) {
+                    bgStars.push({
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight,
+                        r: 0.3 + Math.random() * 1.8,
+                        twinkleSpeed: 0.003 + Math.random() * 0.015,
+                        twinkleOffset: Math.random() * Math.PI * 2,
+                        baseAlpha: 0.25 + Math.random() * 0.7,
+                    });
+                }
+            }
+
+            function resizeBgCanvas() {
+                bgCanvas.width = window.innerWidth;
+                bgCanvas.height = window.innerHeight;
+                initBgStars();
+            }
+
+            function drawBgStars(timestamp) {
+                bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+                const grad = bgCtx.createRadialGradient(
+                    bgCanvas.width / 2, bgCanvas.height / 2, 0,
+                    bgCanvas.width / 2, bgCanvas.height / 2, Math.max(bgCanvas.width, bgCanvas.height) * 0.7
+                );
+                grad.addColorStop(0, '#1e1e40');
+                grad.addColorStop(0.5, '#1a1a30');
+                grad.addColorStop(1, '#0d0d1a');
+                bgCtx.fillStyle = grad;
+                bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+                bgStars.forEach(star => {
+                    const alpha = star.baseAlpha + Math.sin(timestamp * star.twinkleSpeed + star
+                        .twinkleOffset) * 0.3;
+                    const clampedAlpha = Math.max(0.1, Math.min(1, alpha));
+                    bgCtx.beginPath();
+                    bgCtx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+                    bgCtx.fillStyle = `rgba(255,255,255,${clampedAlpha})`;
+                    bgCtx.fill();
+                    if (star.r > 1.0) {
+                        bgCtx.beginPath();
+                        bgCtx.arc(star.x, star.y, star.r * 2.5, 0, Math.PI * 2);
+                        bgCtx.fillStyle = `rgba(200,210,255,${clampedAlpha * 0.25})`;
+                        bgCtx.fill();
+                    }
+                });
+
+                const nebulaGrad = bgCtx.createRadialGradient(
+                    bgCanvas.width * 0.35, bgCanvas.height * 0.4, 0,
+                    bgCanvas.width * 0.35, bgCanvas.height * 0.4, bgCanvas.width * 0.5
+                );
+                nebulaGrad.addColorStop(0, 'rgba(120,80,180,0.06)');
+                nebulaGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                bgCtx.fillStyle = nebulaGrad;
+                bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+                const nebulaGrad2 = bgCtx.createRadialGradient(
+                    bgCanvas.width * 0.65, bgCanvas.height * 0.55, 0,
+                    bgCanvas.width * 0.65, bgCanvas.height * 0.55, bgCanvas.width * 0.45
+                );
+                nebulaGrad2.addColorStop(0, 'rgba(60,120,200,0.05)');
+                nebulaGrad2.addColorStop(1, 'rgba(0,0,0,0)');
+                bgCtx.fillStyle = nebulaGrad2;
+                bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+            }
+
+            function animateBg(timestamp) {
+                drawBgStars(timestamp);
+                requestAnimationFrame(animateBg);
+            }
+
+            // ==================== 结束游戏与弹窗 ====================
+            function showResultOverlay() {
+                finalScore.textContent = score;
+                finalCombo.textContent = maxCombo;
+                finalLevel.textContent = level;
+                finalStars.textContent = starsCollected;
+                resultOverlay.classList.remove('hidden');
+            }
+
+            function hideResultOverlay() {
+                resultOverlay.classList.add('hidden');
+            }
+
+            function endGame() {
+                if (!isGameActive) return;
+                isGameActive = false;
+                gameState = STATE.ENDED;
+                // 停止所有计时器
+                if (starSpawnTimer) clearTimeout(starSpawnTimer);
+                disableCrystals();
+                // 清理漂浮星星
+                document.querySelectorAll('.floating-star').forEach(s => {
+                    s.style.opacity = '0';
+                    s.style.pointerEvents = 'none';
+                    setTimeout(() => s.remove(), 200);
+                });
+                setStatus('watch', '🐱 游戏结束');
+                kittyEl.textContent = '😺';
+                kittyEl.classList.remove('happy', 'sad', 'bounce');
+                showResultOverlay();
+            }
+
+            function restartGame() {
+                hideResultOverlay();
+                // 重置所有数据
+                score = 0;
+                combo = 0;
+                maxCombo = 0;
+                level = 1;
+                starsCollected = 0;
+                sequenceLength = 2;
+                showSpeed = 700;
+                showGap = 300;
+                retryCount = 0;
+                playerIndex = 0;
+                sequence = [];
+                updateHUD();
+                setStatus('watch', '👀 准备观察...');
+                kittyEl.textContent = '🐱';
+                enableCrystals();
+                isGameActive = true;
+                gameState = STATE.IDLE; // 稍后会被 startNewRound 改为 SHOWING
+                scheduleNextStar();
+                startNewRound();
+            }
+
+            function backToMenu() {
+                hideResultOverlay();
+                // 回到初始界面
+                isGameActive = false;
+                gameState = STATE.IDLE;
+                sequence = [];
+                playerIndex = 0;
+                score = 0;
+                combo = 0;
+                maxCombo = 0;
+                level = 1;
+                starsCollected = 0;
+                sequenceLength = 2;
+                retryCount = 0;
+                updateHUD();
+                disableCrystals();
+                setStatus('watch', '🐱 准备好了吗？');
+                kittyEl.textContent = '🐱';
+                kittyEl.classList.remove('happy', 'sad', 'bounce');
+                if (starSpawnTimer) clearTimeout(starSpawnTimer);
+                document.querySelectorAll('.floating-star').forEach(s => s.remove());
+                document.querySelectorAll('.particle').forEach(p => p.remove());
+                comboPop.className = '';
+                startOverlay.classList.remove('hidden');
+            }
+
+            // ==================== 事件绑定 ====================
+            startBtn.addEventListener('pointerup', (e) => {
+                e.preventDefault();
+                initAudio();
+                // 重置状态并开始
+                score = 0;
+                combo = 0;
+                maxCombo = 0;
+                level = 1;
+                starsCollected = 0;
+                sequenceLength = 2;
+                showSpeed = 700;
+                showGap = 300;
+                retryCount = 0;
+                playerIndex = 0;
+                sequence = [];
+                updateHUD();
+                setStatus('watch', '👀 准备观察...');
+                kittyEl.textContent = '🐱';
+                kittyEl.classList.remove('happy', 'sad', 'bounce');
+                enableCrystals();
+                isGameActive = true;
+                gameState = STATE.IDLE;
+                startOverlay.classList.add('hidden');
+                scheduleNextStar();
+                startNewRound();
+            });
+
+            endGameBtn.addEventListener('pointerup', (e) => {
+                e.preventDefault();
+                if (isGameActive) {
+                    endGame();
+                }
+            });
+
+            restartBtn.addEventListener('pointerup', (e) => {
+                e.preventDefault();
+                restartGame();
+            });
+
+            menuBtn.addEventListener('pointerup', (e) => {
+                e.preventDefault();
+                backToMenu();
+            });
+
+            window.addEventListener('resize', () => {
+                clearTimeout(window.resizedTimer);
+                window.resizedTimer = setTimeout(() => {
+                    resizeBgCanvas();
+                    positionCrystals();
+                }, 250);
+            });
+
+            document.addEventListener('touchmove', function(e) {
+                if (e.target.closest('#game-container') || e.target.closest('.floating-star') || e.target
+                    .closest('.crystal')) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'r' || e.key === 'R') {
+                    if (isGameActive) {
+                        endGame();
+                        restartGame();
+                    }
+                }
+                if (e.key === ' ' && !isGameActive && startOverlay.classList.contains('hidden') ===
+                    false) {
+                    e.preventDefault();
+                    startBtn.dispatchEvent(new Event('pointerup'));
+                }
+                if (e.key === ' ' && !isGameActive && startOverlay.classList.contains('hidden')) {
+                    e.preventDefault();
+                    restartGame();
+                }
+                if (e.key === 'Escape' && isGameActive) {
+                    endGame();
+                }
+            });
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    if (starSpawnTimer) clearTimeout(starSpawnTimer);
+                } else {
+                    if (isGameActive && gameState !== STATE.ENDED) {
+                        scheduleNextStar();
+                    }
+                }
+            });
+
+            // ==================== 初始化 ====================
+            function init() {
+                resizeBgCanvas();
+                createCrystals();
+                positionCrystals();
+                disableCrystals();
+                setStatus('watch', '🐱 准备好了吗？');
+                kittyEl.textContent = '🐱';
+                updateHUD();
+                for (let i = 0; i < 3; i++) {
+                    setTimeout(() => spawnFloatingStar(), i * 400);
+                }
+                scheduleNextStar();
+                requestAnimationFrame(animateBg);
+            }
+
+            init();
+
+            console.log('🌟 星光猫咪 · 水晶序列 (优化版) 已启动！');
+            console.log('🔉 音量已降低防止炸麦 | ⭐ 星星仅点击收集 | 🛑 结束按钮可用');
+        })();
+    </script>
+</body>
+</html>
